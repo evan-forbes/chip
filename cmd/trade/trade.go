@@ -12,32 +12,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// Limit describes an order that could be executed by chip
-type Limit struct {
-	Key        string    `json:"_key,omitempty"`
-	Sell       string    `json:"sell"`
-	Buy        string    `json:"buy"`
-	User       string    `json:"user"`
-	BuyAmount  float64   `json:"buy_amount,omitempty"`
-	SellAmount float64   `json:"sell_amount,omitempty"`
-	Price      float64   `json:"price,omitempty"` // buy amount / sell amount
-	CreateTime time.Time `json:"create_time"`
-	ExecTime   time.Time `json:"exec_time"`
-	Leverage   int       `json:"leverage"`
-	Long       bool      `json:"long"`
-}
-
-// Insert adds the limit to the database for potential execution
-func (l *Limit) Insert(sesh *arango.Sesh) error {
-	return sesh.CreateDoc("limits", l)
-}
-
-// InsertMarket adds the limit to database to be executed upon the next price
-// update
-func (l *Limit) InsertMarket(sesh *arango.Sesh) error {
-	return sesh.CreateDoc("pending", l)
-}
-
 // Flags returns the flags needed for the trade cli sub command
 func Flags() []cli.Flag {
 	return []cli.Flag{
@@ -93,13 +67,12 @@ func Trade(long, levered bool) cli.ActionFunc {
 		// amount to sell (overides price if set)
 		sam := ctx.Float64("sellamount")
 		// amount of leverage to apply
-		lever := ctx.Int("leverage")
+		lever := abs(ctx.Int("leverage"))
 		// checks if this order is a limit order or not
 		isLim, price := ensureLimit(ctx)
 
-		if !levered {
-			lever = 0
-		}
+		// make sure that an apropriate amount of leverage is being used
+		lever = ensureLeverage(ctx, lever, levered)
 
 		// ensure assets are valid/present
 		valid, err := ensureAssets(ctx, sesh, sass, bass)
@@ -222,4 +195,22 @@ func ensureSell(ctx *cli.Context, sesh *arango.Sesh, user, asset string, amount 
 		amount = currBal
 	}
 	return true, amount, nil
+}
+
+func ensureLeverage(ctx *cli.Context, lever int, leveraged bool) int {
+	if !leveraged {
+		return 0
+	}
+	if lever > 5 {
+		ctx.Println("oh cute meat bag, one must walk before one can run. using the max of 5x leverage")
+		lever = 5
+	}
+	return lever
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }

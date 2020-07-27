@@ -2,6 +2,7 @@ package arango
 
 import (
 	"bytes"
+	"fmt"
 	"text/template"
 )
 
@@ -74,3 +75,34 @@ for b in balances
     limit 1
     return b 
 `
+
+const StampSeries = `
+let out = (
+	for s in stamps
+		sort b._key asc
+		filter b.time > "%s"
+		filter b.time < "%s"
+		return s
+)
+return out
+`
+
+const StampClean = `
+for s in stamps
+	filter s.market_cap == 0
+	remove s._key in stamps
+`
+
+const LatestPrice = `
+for s in stamps
+    filter s.symbol == "BTC"
+	sort s._key desc
+	limit 1
+	return s.price
+`
+
+func FetchLatestPrice(sesh *Sesh, symbol string) (float64, error) {
+	var price float64
+	err := sesh.Execute(fmt.Sprintf(LatestPrice, symbol), &price)
+	return price, err
+}
