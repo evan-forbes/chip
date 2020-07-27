@@ -130,7 +130,7 @@ func ensureAssets(ctx *cli.Context, sesh *arango.Sesh, assets ...string) (bool, 
 			return false, errors.Wrap(err, "failure to validate asset amount:")
 		}
 		if !exists {
-			ctx.Println(fmt.Sprintf("According to my books, asset %s does not exist. Please try again.", asset))
+			ctx.Println(fmt.Sprintf("Meat bag, according to my books, asset %s does not exist. Please examine and try again.", asset))
 			return false, nil
 		}
 	}
@@ -146,14 +146,15 @@ func ensureSell(ctx *cli.Context, sesh *arango.Sesh, user, asset string, amount 
 	}
 	currBal, has := bal.Balances[asset]
 	if !has || currBal < amount {
-		ctx.Println(fmt.Sprintf("you don't have enough"))
+		ctx.Println(fmt.Sprintf("meat bag, you do not have enough %s to sell", asset))
+		ctx.Println(fmt.Sprintf("current balance: %f.3", currBal))
 		return false, 0, nil
 	}
 	// if there was no sell amount, ask for one
 	if amount <= 0 {
 		input, err := ctx.Input(
 			fmt.Sprintf(
-				`I didn't see a sell amount (flag -sam)
+				`meat bag, I didn't see a sell amount (flag -sam)
 				how much %s would you like to sell? 
 				You currently have %f.3 %s
 				please only enter a number`,

@@ -8,23 +8,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// chip limit -b eth -s usdc -sam -bam
-
-// go long on ETH with 5x leverage and using 1000 USDC as a position size
-// chip market long -b ETH -s USDC -sam 1000 -l 5
-
-// open a short position if the price gets
-// chip limit short -b ETH -s USDC -sam 5000
-
-// chip limit
-
-// chip market -b eth -s USDC -a 1000 -l 5
-
-// > You currently have 1000 USDC. Please enter in only the amount you would like sell or the word "all"
-// > 500
-// >
-
-// chip short limit -b ETH -s BTC -sam 1 -p 400 -l 5
+// chip trade -b eth -s usdc -sam 1000 -p 300
+// chip trade -b usdc -s eth -sam -1 -p .005
 
 // chip long -b eth -s usdc -sam 1000
 // chip short -b usdc -s eth -sam 3.4
@@ -44,16 +29,22 @@ func main() {
 	// subcommands
 	app.Commands = []*cli.Command{
 		{
-			Name:  "short",
-			Usage: "opens a bearish position",
-			Flags: trade.Flags(),
-			// Action: trade.Short,s
+			Name:   "short",
+			Usage:  "opens a bearish position/limit order",
+			Flags:  trade.Flags(),
+			Action: trade.Trade(false, true),
 		},
 		{
-			Name:  "long",
-			Usage: "opens a bullish position",
-			Flags: trade.Flags(),
-			// Action: trade.Short,s
+			Name:   "long",
+			Usage:  "opens a bullish position/limit order",
+			Flags:  trade.Flags(),
+			Action: trade.Trade(true, true),
+		},
+		{
+			Name:   "trade",
+			Usage:  "puts in an order to trade assets at a certain price",
+			Flags:  trade.Flags(),
+			Action: trade.Trade(false, false),
 		},
 		{
 			Name:  "award",
@@ -88,12 +79,6 @@ func main() {
 		{
 			Name:  "cancel",
 			Usage: "removes a limit order",
-			// Flags: tradeFlags,
-			// Action: trade.Short,s
-		},
-		{
-			Name:  "short",
-			Usage: "opens a bearish position",
 			// Flags: tradeFlags,
 			// Action: trade.Short,s
 		},

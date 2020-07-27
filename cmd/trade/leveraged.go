@@ -20,11 +20,11 @@ type Limit struct {
 	User       string    `json:"user"`
 	BuyAmount  float64   `json:"buy_amount,omitempty"`
 	SellAmount float64   `json:"sell_amount,omitempty"`
-	Price      float64   `json:"price,omitempty"`
-	ChanID     string    `json:"channel_id"`
+	Price      float64   `json:"price,omitempty"` // buy amount / sell amount
 	CreateTime time.Time `json:"create_time"`
 	ExecTime   time.Time `json:"exec_time"`
 	Leverage   int       `json:"leverage"`
+	Long       bool      `json:"long"`
 }
 
 // Insert adds the limit to the database for potential execution
@@ -57,7 +57,7 @@ func Flags() []cli.Flag {
 			Name:    "sellamount",
 			Aliases: []string{"sam"},
 			Value:   0,
-			Usage:   "specify the amount to be bought",
+			Usage:   "specify the amount to be bought (use -1 to sell all",
 		},
 		&cli.Float64Flag{
 			Name:    "price",
@@ -74,7 +74,8 @@ func Flags() []cli.Flag {
 	}
 }
 
-func Trade(long bool) cli.ActionFunc {
+// Trade issues a leveraged position/limit order paid out in the selling asset
+func Trade(long, levered bool) cli.ActionFunc {
 	return func(ctx *cli.Context) error {
 		// connect to the db
 		sesh, err := arango.NewSesh(ctx.Context, "cookie")
@@ -85,27 +86,19 @@ func Trade(long bool) cli.ActionFunc {
 		if !has {
 			return errors.New("failure to set limit order: no user detected")
 		}
-		var chanID string
-		if ctx.Slug == nil {
-			chanID = "local"
-		} else {
-			chanID = ctx.Slug.ChanID
-		}
 		// sell asset ticker symbol
 		sass := strings.ToUpper(ctx.String("sell"))
 		// buy asset ticker symbol
 		bass := strings.ToUpper(ctx.String("buy"))
 		// amount to sell (overides price if set)
 		sam := ctx.Float64("sellamount")
-		// amount to buy (overides price if set)
-		price := ctx.Float64("price")
 		// amount of leverage to apply
 		lever := ctx.Int("leverage")
-		// indicates if this order is a limit order or not
-		var isLimit bool
-		limitArg := ctx.Args().First()
-		if limitArg == "limit" {
-			isLimit = true
+		// checks if this order is a limit order or not
+		isLim, price := ensureLimit(ctx)
+
+		if !levered {
+			lever = 0
 		}
 
 		// ensure assets are valid/present
@@ -126,6 +119,20 @@ func Trade(long bool) cli.ActionFunc {
 		if !valid {
 			return nil
 		}
+		limit := Limit{
+			Sell:       sass,
+			Buy:        bass,
+			User:       user,
+			SellAmount: sam,
+			Price:      price,
+			CreateTime: time.Now().Round(time.Second),
+			Leverage:   lever,
+			Long:       long,
+		}
+		if isLim {
+			return limit.Insert(sesh)
+		}
+		return limit.InsertMarket(sesh)
 	}
 }
 
@@ -133,11 +140,10 @@ func Trade(long bool) cli.ActionFunc {
 // clarification if one is provided and not the other
 func ensureLimit(ctx *cli.Context) (isLim bool, price float64) {
 	price = ctx.Float64("price")
-	lim := ctx.Args().First()
-	if lim == "limit" {
+	if price > 0 {
 		isLim = true
 	}
-
+	return isLim, price
 }
 
 // detectUser attempts to identify the user based on the context
@@ -186,17 +192,19 @@ func ensureSell(ctx *cli.Context, sesh *arango.Sesh, user, asset string, amount 
 	}
 	currBal, has := bal.Balances[asset]
 	if !has || currBal < amount {
-		ctx.Println(fmt.Sprintf("you don't have enough"))
+		ctx.Println(fmt.Sprintf("beloved meat bag, you do not have enough %s to sell", asset))
+		ctx.Println(fmt.Sprintf("current balance: %f.3", currBal))
 		return false, 0, nil
 	}
 	// if there was no sell amount, ask for one
-	if amount <= 0 {
+	if amount == 0 {
 		input, err := ctx.Input(
 			fmt.Sprintf(
-				`I didn't see a sell amount (flag -sam)
+				`my meat bag friend, I didn't see a sell amount (flag -sam)
 				how much %s would you like to sell? 
 				You currently have %f.3 %s
-				please only enter a number`,
+				please only enter a number
+				use -1 to sell all`,
 				asset, currBal, asset,
 			))
 		if err != nil {
@@ -207,30 +215,11 @@ func ensureSell(ctx *cli.Context, sesh *arango.Sesh, user, asset string, amount 
 		if err != nil {
 			return false, amount, errors.Wrap(err, "failure to validate selling asset amount")
 		}
+		// try again with the newly entered amount
+		return ensureSell(ctx, sesh, user, asset, amount)
 	}
-	return true, amount, nil
-}
-
-// ensureBuy checks to see that user has specified a buy amount, if not, it
-// double checks
-func ensureBuy(ctx *cli.Context, asset string, amount float64) (valid bool, bam float64, err error) {
-	// if there was no sell amount, ask for one
-	if amount <= 0 {
-		input, err := ctx.Input(
-			fmt.Sprintf(
-				`I didn't see a buy amount (flag -bam)
-				how much %s would you like to buy?
-				please only enter a number`,
-				asset,
-			))
-		if err != nil {
-			return false, 0, errors.Wrap(err, "failure to validate buying asset amount")
-		}
-		// set amount to the inputed amount if a number is passed
-		amount, err = strconv.ParseFloat(input, 64)
-		if err != nil {
-			return false, amount, errors.Wrap(err, "failure to parse float while validating buying asset amount")
-		}
+	if amount < 0 {
+		amount = currBal
 	}
 	return true, amount, nil
 }
