@@ -44,7 +44,7 @@ func main() {
 			Name:   "trade",
 			Usage:  "puts in an order to trade assets at a certain price",
 			Flags:  trade.Flags(),
-			Action: trade.Trade(false, false),
+			Action: trade.Trade(true, false),
 		},
 		{
 			Name:  "award",

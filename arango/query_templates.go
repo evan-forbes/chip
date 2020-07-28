@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"text/template"
+
+	"github.com/pkg/errors"
 )
 
 // FilterMany feeds into the filterManyTemplate to generate a query to filter
@@ -68,13 +70,19 @@ func strGen(temp *template.Template, data interface{}) (string, error) {
 	return buf.String(), nil
 }
 
-const LatestBalance = `
+const LatestBalanceQ = `
 for b in balances
     sort b._key desc
     filter b.user == "%s"
     limit 1
     return b 
 `
+
+func LatestBalance(sesh *Sesh, user string) (Balance, error) {
+	var bal Balance
+	err := sesh.Execute(fmt.Sprintf(LatestBalanceQ, user), &bal)
+	return bal, err
+}
 
 const StampSeries = `
 let out = (
@@ -105,4 +113,28 @@ func FetchLatestPrice(sesh *Sesh, symbol string) (float64, error) {
 	var price float64
 	err := sesh.Execute(fmt.Sprintf(LatestPrice, symbol), &price)
 	return price, err
+}
+
+const UserChannelQ = `
+for u in users
+	filter u._key == "%s"
+	return u.channel_id
+`
+
+func UserChanID(sesh *Sesh, user string) (string, error) {
+	var id string
+	err := sesh.Execute(fmt.Sprintf(LatestPrice, user), &id)
+	return id, err
+}
+
+func RemoveLimit(sesh *Sesh, key string) error {
+	col, err := sesh.GetCol("limits")
+	if err != nil {
+		return errors.Wrap(err, "failure to remove limit order:")
+	}
+	_, err = col.RemoveDocument(sesh.Ctx, key)
+	if err != nil {
+		return errors.Wrap(err, "failure to remove limit order:")
+	}
+	return nil
 }

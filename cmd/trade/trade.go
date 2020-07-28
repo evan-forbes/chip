@@ -68,6 +68,7 @@ func Trade(long, levered bool) cli.ActionFunc {
 		sam := ctx.Float64("sellamount")
 		// amount of leverage to apply
 		lever := abs(ctx.Int("leverage"))
+
 		// checks if this order is a limit order or not
 		isLim, price := ensureLimit(ctx)
 
@@ -97,6 +98,7 @@ func Trade(long, levered bool) cli.ActionFunc {
 			Buy:        bass,
 			User:       user,
 			SellAmount: sam,
+			BuyAmount:  sam * price,
 			Price:      price,
 			CreateTime: time.Now().Round(time.Second),
 			Leverage:   lever,
@@ -159,7 +161,7 @@ func ensureAssets(ctx *cli.Context, sesh *arango.Sesh, assets ...string) (bool, 
 // ensureSell checks to make sure that the user has enough funds
 func ensureSell(ctx *cli.Context, sesh *arango.Sesh, user, asset string, amount float64) (valid bool, amm float64, err error) {
 	var bal arango.Balance
-	err = sesh.Execute(fmt.Sprintf(arango.LatestBalance, user), &bal)
+	err = sesh.Execute(fmt.Sprintf(arango.LatestBalanceQ, user), &bal)
 	if err != nil {
 		return false, 0, err
 	}
