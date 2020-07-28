@@ -87,10 +87,16 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 	if err != nil {
 		return errors.Wrap(err, "failure to execute limit order:")
 	}
+	sellBal, has := bal.Balances[l.Sell]
+	if sellBal < l.SellAmount || !has {
+		errMsg := fmt.Sprintf("meat ball, failed to execute your limit order: you do not have enough %s", l.Sell)
+		srv.Message(id, errMsg)
+		return nil
+	}
 	switch {
 	// limit should be executed at market
 	case l.Price == 0 && l.Leverage == 0:
-		err = l.executeMarketTrade(srv, sesh, bal, id)
+		err = l.executeTrade(srv, sesh, bal, id)
 	// limit order should be executed at market prices
 	case l.Price == 0 && l.Leverage > 0:
 		err = l.executeMarketLevered(srv, sesh, bal, id)
@@ -112,13 +118,25 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 }
 
 // executeTrade alters a users balances according to limit order. It assumes the
-// order is ready to be executed and is valid
+// order is ready to be executed and is valid. Uses the buy price in the limit, not the current buy price
 func (l *Limit) executeTrade(srv *disc.Server, sesh *arango.Sesh, bal arango.Balance, id string) error {
-	srv.Message(id, l.renderTrade())
-	return nil
-}
+	// check that there is enough asset to sell
+	sellPrice, err := arango.FetchLatestPrice(sesh, l.Sell)
+	if err != nil {
+		return err
+	}
+	buyPrice = l.Price
+	sellCost := sellPrice * l.SellAmount
+	l.BuyAmount = sellCost / buyPrice
 
-func (l *Limit) executeMarketTrade(srv *disc.Server, sesh *arango.Sesh, bal arango.Balance, id string) error {
+	l.ExecTime = time.Now().Round(time.Second)
+
+	// adjust balances
+	bal.Balances[l.Sell] = bal.Balances[l.Sell] - l.SellAmount
+	bal.Balances[l.Buy] = bal.Balances[l.Buy] + l.BuyAmount
+
+	// add the new balances to the records
+	sesh.CreateDoc("balances", bal)
 	srv.Message(id, l.renderTrade())
 	return nil
 }
