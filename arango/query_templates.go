@@ -78,10 +78,10 @@ for b in balances
     return b 
 `
 
-func LatestBalance(sesh *Sesh, user string) (Balance, error) {
+func LatestBalance(sesh *Sesh, user string) (*Balance, error) {
 	var bal Balance
 	err := sesh.Execute(fmt.Sprintf(LatestBalanceQ, user), &bal)
-	return bal, err
+	return &bal, err
 }
 
 const StampSeries = `

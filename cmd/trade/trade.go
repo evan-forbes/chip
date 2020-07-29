@@ -27,6 +27,12 @@ func Flags() []cli.Flag {
 			Value:   "",
 			Usage:   "specify the asset to be sold",
 		},
+		&cli.StringFlag{
+			Name:    "collateral",
+			Aliases: []string{"c"},
+			Value:   "",
+			Usage:   "specify the asset to be used as collateral in a leveraged position",
+		},
 		&cli.Float64Flag{
 			Name:    "sellamount",
 			Aliases: []string{"sam"},
@@ -64,6 +70,8 @@ func Trade(long, levered bool) cli.ActionFunc {
 		sass := strings.ToUpper(ctx.String("sell"))
 		// buy asset ticker symbol
 		bass := strings.ToUpper(ctx.String("buy"))
+		// buy asset ticker symbol
+		cass := strings.ToUpper(ctx.String("buy"))
 		// amount to sell (overides price if set)
 		sam := ctx.Float64("sellamount")
 		// amount of leverage to apply
@@ -76,7 +84,7 @@ func Trade(long, levered bool) cli.ActionFunc {
 		lever = ensureLeverage(ctx, lever, levered)
 
 		// ensure assets are valid/present
-		valid, err := ensureAssets(ctx, sesh, sass, bass)
+		valid, err := ensureAssets(ctx, sesh, sass, bass, cass)
 		if err != nil {
 			return errors.Wrapf(err, "failure to validate assets: %s and %s: ", sass, bass)
 		}
@@ -84,8 +92,11 @@ func Trade(long, levered bool) cli.ActionFunc {
 		if !valid {
 			return nil
 		}
+		if cass == "" {
+			cass = sass
+		}
 		// make sure the user has enough to sell
-		valid, sam, err = ensureSell(ctx, sesh, user, sass, sam)
+		valid, sam, err = ensureSell(ctx, sesh, user, cass, sam)
 		if err != nil {
 			return errors.Wrapf(err, "failure to validate assets: %s and %s: ", sass, bass)
 		}
@@ -96,6 +107,7 @@ func Trade(long, levered bool) cli.ActionFunc {
 		limit := Limit{
 			Sell:       sass,
 			Buy:        bass,
+			Collat:     cass,
 			User:       user,
 			SellAmount: sam,
 			BuyAmount:  sam * price,
