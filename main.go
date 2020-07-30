@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/evan-forbes/chip/arango"
+	"github.com/evan-forbes/chip/cmd/begin"
 	"github.com/evan-forbes/chip/cmd/trade"
 	"github.com/pkg/errors"
 	cron "github.com/robfig/cron/v3"
@@ -48,53 +50,59 @@ func main() {
 		},
 		{
 			Name:   "trade",
-			Usage:  "puts in an order to trade assets at a certain price",
+			Usage:  "exchange one asset for another",
 			Flags:  trade.Flags(),
 			Action: trade.Trade(true, false),
 		},
+		// {
+		// 	Name:  "award",
+		// 	Usage: "starts the process of issuing a reward",
+		// 	// Flags: "",
+		// 	// Action: trade.Short,s
+		// },
+		// {
+		// 	Name:  "post",
+		// 	Usage: "shows you your current open positions",
+		// 	// Flags: tradeFlags,
+		// 	// Action: trade.Short,s
+		// },
+		// {
+		// 	Name:  "close",
+		// 	Usage: "ends/describes an ending for an open position, cementing losses or gains",
+		// 	// Flags: tradeFlags,
+		// 	// Action: trade.Short,s
+		// },
+		// {
+		// 	Name:  "brag",
+		// 	Usage: "provides details on a current position",
+		// 	// Flags: tradeFlags,
+		// 	// Action: trade.Short,s
+		// },
+		// {
+		// 	Name:  "orders",
+		// 	Usage: "shows you all of your current limit orders",
+		// 	// Flags: tradeFlags,
+		// 	// Action: trade.Short,s
+		// },
+		// {
+		// 	Name:  "cancel",
+		// 	Usage: "removes a limit order",
+		// 	// Flags: tradeFlags,
+		// 	// Action: trade.Short,s
+		// },
 		{
-			Name:  "award",
-			Usage: "starts the process of issuing a reward",
-			// Flags: "",
-			// Action: trade.Short,s
-		},
-		{
-			Name:  "post",
-			Usage: "shows you your current open positions",
-			// Flags: tradeFlags,
-			// Action: trade.Short,s
-		},
-		{
-			Name:  "close",
-			Usage: "ends/describes an ending for an open position, cementing losses or gains",
-			// Flags: tradeFlags,
-			// Action: trade.Short,s
-		},
-		{
-			Name:  "brag",
-			Usage: "provides details on a current position",
-			// Flags: tradeFlags,
-			// Action: trade.Short,s
-		},
-		{
-			Name:  "orders",
-			Usage: "shows you all of your current limit orders",
-			// Flags: tradeFlags,
-			// Action: trade.Short,s
-		},
-		{
-			Name:  "cancel",
-			Usage: "removes a limit order",
-			// Flags: tradeFlags,
-			// Action: trade.Short,s
+			Name:   "begin",
+			Usage:  "start your journey with chip",
+			Action: begin.Begin,
 		},
 	}
 
 	// setup
 	if strings.Contains(strings.Join(os.Args, ""), "boot") {
 		crn := cron.New()
-		crn.AddFunc("*/15 * * * *", func() {
+		crn.AddFunc("*/1 * * * *", func() {
 			time.Sleep(time.Second * 30)
+			fmt.Println("updating the chip state")
 			// connect to arango
 			sesh, err := arango.NewSesh(context.Background(), "cookie")
 			if err != nil {
@@ -120,6 +128,8 @@ func main() {
 				return
 			}
 		})
+		crn.Start()
+		defer crn.Stop()
 	}
 
 	err := app.Run(os.Args)

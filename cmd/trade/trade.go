@@ -51,6 +51,12 @@ func Flags() []cli.Flag {
 			Value:   1,
 			Usage:   "amount of leverage (default of 1)",
 		},
+		&cli.BoolFlag{
+			Name:    "all",
+			Aliases: []string{"a"},
+			Value:   true,
+			Usage:   "sets sell amount (-sam) to your current balance of the selling asset",
+		},
 	}
 }
 
@@ -122,9 +128,17 @@ func Trade(long, levered bool) cli.ActionFunc {
 			Long:       long,
 		}
 		if isLim {
-			return limit.Insert(sesh)
+			err = limit.Insert(sesh)
+		} else {
+			err = limit.InsertMarket(sesh)
 		}
-		return limit.InsertMarket(sesh)
+		if err != nil {
+			return errors.Wrap(err, "failure to insert limit order")
+		}
+		const succMsg = `meat bag, your order has been successfully submitted, I will notify you if it gets executed.\nsee !chip help if you seek further action.
+		`
+		ctx.Println(succMsg)
+		return nil
 	}
 }
 
@@ -168,7 +182,8 @@ func ensureAssets(ctx *cli.Context, sesh *arango.Sesh, assets ...string) (bool, 
 		var exists bool
 		err := sesh.Execute(fmt.Sprintf(query, asset), &exists)
 		if err != nil {
-			return false, errors.Wrap(err, "failure to validate asset amount:")
+			ctx.Println(fmt.Sprintf("According to my books, asset %s does not exist. Please try again.", asset))
+			return false, nil
 		}
 		if !exists {
 			ctx.Println(fmt.Sprintf("According to my books, asset %s does not exist. Please try again.", asset))

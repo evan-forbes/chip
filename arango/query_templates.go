@@ -103,7 +103,7 @@ for s in stamps
 
 const LatestPrice = `
 for s in stamps
-    filter s.symbol == "BTC"
+    filter s.symbol == "%s"
 	sort s._key desc
 	limit 1
 	return s.price
@@ -123,7 +123,7 @@ for u in users
 
 func UserChanID(sesh *Sesh, user string) (string, error) {
 	var id string
-	err := sesh.Execute(fmt.Sprintf(LatestPrice, user), &id)
+	err := sesh.Execute(fmt.Sprintf(UserChannelQ, user), &id)
 	return id, err
 }
 
@@ -168,4 +168,18 @@ func RemoveStamps(sesh *Sesh, keys []string) error {
 	}
 	_, _, err = col.RemoveDocuments(sesh.Ctx, keys)
 	return err
+}
+
+func CountStamps(sesh *Sesh) (int, error) {
+	const query = `
+	for s in stamps
+		collect with count into length
+		return length
+	`
+	var out int
+	err := sesh.Execute(query, &out)
+	if err != nil {
+		return 0, err
+	}
+	return out, nil
 }

@@ -184,7 +184,13 @@ func (l *Limit) executeTrade(sesh *arango.Sesh, bal *arango.Balance) error {
 	bal.Balances[l.Sell] = bal.Balances[l.Sell] - l.SellAmount
 	bal.Balances[l.Buy] = bal.Balances[l.Buy] + l.BuyAmount
 
-	return nil
+	// add the limit to trades
+	// set the time of execution
+	l.ExecTime = time.Now().Round(time.Second)
+
+	err = sesh.CreateDoc("trades", l)
+
+	return err
 }
 
 // executeMarketTrade alters a users balances according to limit order. It assumes the
@@ -208,7 +214,12 @@ func (l *Limit) executeMarketTrade(sesh *arango.Sesh, bal *arango.Balance) error
 	bal.Balances[l.Sell] = bal.Balances[l.Sell] - l.SellAmount
 	bal.Balances[l.Buy] = bal.Balances[l.Buy] + l.BuyAmount
 
-	return nil
+	// set the time of execution
+	l.ExecTime = time.Now().Round(time.Second)
+
+	err = sesh.CreateDoc("trades", l)
+
+	return err
 }
 
 func (l *Limit) executeLevered(sesh *arango.Sesh, bal *arango.Balance) error {
