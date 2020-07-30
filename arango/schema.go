@@ -129,6 +129,7 @@ type Trade struct {
 
 // Stamp holds data for a coin's score at a given time
 type Stamp struct {
+	Key               string    `json:"_key,omitempty"`
 	Name              string    `json:"name"`
 	Symbol            string    `json:"symbol"`
 	Cap               float64   `json:"market_cap"`

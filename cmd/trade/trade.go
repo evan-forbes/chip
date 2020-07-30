@@ -70,8 +70,8 @@ func Trade(long, levered bool) cli.ActionFunc {
 		sass := strings.ToUpper(ctx.String("sell"))
 		// buy asset ticker symbol
 		bass := strings.ToUpper(ctx.String("buy"))
-		// buy asset ticker symbol
-		cass := strings.ToUpper(ctx.String("buy"))
+		// collateral asset ticker symbol
+		cass := strings.ToUpper(ctx.String("collateral"))
 		// amount to sell (overides price if set)
 		sam := ctx.Float64("sellamount")
 		// amount of leverage to apply
@@ -104,13 +104,18 @@ func Trade(long, levered bool) cli.ActionFunc {
 		if !valid {
 			return nil
 		}
+		var buyAm float64
+		if price > 0 {
+			buyAm = sam / price
+		}
 		limit := Limit{
 			Sell:       sass,
 			Buy:        bass,
 			Collat:     cass,
 			User:       user,
 			SellAmount: sam,
-			BuyAmount:  sam * price,
+			CollAmount: sam,
+			BuyAmount:  buyAm,
 			Price:      price,
 			CreateTime: time.Now().Round(time.Second),
 			Leverage:   lever,
@@ -157,6 +162,9 @@ func ensureAssets(ctx *cli.Context, sesh *arango.Sesh, assets ...string) (bool, 
 		return s.market_cap > 0
 	`
 	for _, asset := range assets {
+		if asset == "" {
+			continue
+		}
 		var exists bool
 		err := sesh.Execute(fmt.Sprintf(query, asset), &exists)
 		if err != nil {

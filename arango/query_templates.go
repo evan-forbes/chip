@@ -138,3 +138,34 @@ func RemoveLimit(sesh *Sesh, key string) error {
 	}
 	return nil
 }
+
+func ExportStamps(sesh *Sesh, incr int) ([]*Stamp, []string, error) {
+	const query = `
+	let out = (
+		for s in stamps
+			sort s._key asc
+			limit %d
+			return s
+	)
+	return out
+	`
+	var out []*Stamp
+	err := sesh.Execute(fmt.Sprintf(query, incr), &out)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failure to export stamps:")
+	}
+	var keys []string
+	for _, s := range out {
+		keys = append(keys, s.Key)
+	}
+	return out, keys, nil
+}
+
+func RemoveStamps(sesh *Sesh, keys []string) error {
+	col, err := sesh.GetCol("stamps")
+	if err != nil {
+		return err
+	}
+	_, _, err = col.RemoveDocuments(sesh.Ctx, keys)
+	return err
+}

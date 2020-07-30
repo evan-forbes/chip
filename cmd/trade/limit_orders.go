@@ -1,7 +1,6 @@
 package trade
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 
 // CheckLimits fetches all limit orders of a given grouping, either pending
 // (market orders) or limits (limit orders)
-func CheckLimits(ctx context.Context, srv *disc.Server) error {
+func CheckLimits(srv *disc.Server, sesh *arango.Sesh) error {
 	const query = `
 	let out = (
 		for l in limits
@@ -21,13 +20,8 @@ func CheckLimits(ctx context.Context, srv *disc.Server) error {
 	return out
 	`
 	errMsg := "failure check limits"
-	// connect to the db
-	sesh, err := arango.NewSesh(ctx, "cookie")
-	if err != nil {
-		return errors.Wrap(err, errMsg)
-	}
 	var limits []Limit
-	err = sesh.Execute(query, &limits)
+	err := sesh.Execute(query, &limits)
 	if err != nil {
 		return errors.Wrap(err, errMsg)
 	}
@@ -46,7 +40,7 @@ func CheckLimits(ctx context.Context, srv *disc.Server) error {
 	return nil
 }
 
-func ExecuteMarketOrders(ctx context.Context, srv *disc.Server) error {
+func ExecuteMarketOrders(srv *disc.Server, sesh *arango.Sesh) error {
 	const query = `
 	let out = (
 		for l in pending
@@ -56,12 +50,8 @@ func ExecuteMarketOrders(ctx context.Context, srv *disc.Server) error {
 	`
 	errMsg := "failure execute market orders"
 	// connect to the db
-	sesh, err := arango.NewSesh(ctx, "cookie")
-	if err != nil {
-		return errors.Wrap(err, errMsg)
-	}
 	var limits []Limit
-	err = sesh.Execute(query, &limits)
+	err := sesh.Execute(query, &limits)
 	if err != nil {
 		return errors.Wrap(err, errMsg)
 	}
@@ -117,12 +107,24 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 		return errors.Wrap(err, "failure to find user during limit order execution")
 	}
 
-	// check the user's sell balance
-	sellBal, has := bal.Balances[l.Sell]
-	if sellBal < l.SellAmount || !has {
-		errMsg := fmt.Sprintf("meat ball, failed to execute your limit order: you do not have enough %s", l.Sell)
-		srv.Message(id, errMsg)
-		return nil
+	// check that the user has enough collateral or amount to sell
+	if l.Collat != "" {
+		collBal, has := bal.Balances[l.Collat]
+		if collBal < l.SellAmount || !has {
+			errMsg := fmt.Sprintf("meat ball, failed to execute your limit order %s: you do not have enough %s", l.Key, l.Collat)
+			srv.Message(id, errMsg)
+			// remove the limit order
+			return sesh.RemoveDoc("limits", l.Key)
+		}
+	} else {
+		// check the user's sell balance
+		sellBal, has := bal.Balances[l.Sell]
+		if sellBal < l.SellAmount || !has {
+			errMsg := fmt.Sprintf("meat ball, failed to execute your limit order: you do not have enough %s", l.Sell)
+			srv.Message(id, errMsg)
+			// remove the limit order
+			return sesh.RemoveDoc("limits", l.Key)
+		}
 	}
 	switch {
 	// limit should be executed at market
@@ -146,6 +148,7 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 	l.ExecTime = time.Now().Round(time.Second)
 
 	// create a new balance entry using the updated balance
+	bal.Timestamp = time.Now().Round(time.Second)
 	err = sesh.CreateDoc("balances", bal)
 	if err != nil {
 		return errors.Wrap(err, "failure to execute limit order")
@@ -209,11 +212,52 @@ func (l *Limit) executeMarketTrade(sesh *arango.Sesh, bal *arango.Balance) error
 }
 
 func (l *Limit) executeLevered(sesh *arango.Sesh, bal *arango.Balance) error {
+	// check that there is enough asset to sell
+	// sellPrice, err := arango.FetchLatestPrice(sesh, l.Sell)
+	// if err != nil {
+	// 	return err
+	// }
+	// buyPrice, err := arango.FetchLatestPrice(sesh, l.Buy)
+	// if err != nil {
+	// 	return err
+	// }
+	l.BuyAmount = l.SellAmount / l.Price
+	l.Price = l.BuyAmount / l.SellAmount
+	bal.Balances[l.Collat] = bal.Balances[l.Collat] - l.CollAmount
+	// add position to positions using current price
+	//
+	post := &Position{
+		Limit:    *l,
+		Start:    time.Now().Round(time.Second),
+		Alive:    true,
+		LiqPrice: l.liqPrice,
+	}
+	sesh.CreateDoc("positions", post)
 	return nil
 }
 
 func (l *Limit) executeMarketLevered(sesh *arango.Sesh, bal *arango.Balance) error {
-	// add position to position
+	// check that there is enough asset to sell
+	sellPrice, err := arango.FetchLatestPrice(sesh, l.Sell)
+	if err != nil {
+		return err
+	}
+	buyPrice, err := arango.FetchLatestPrice(sesh, l.Buy)
+	if err != nil {
+		return err
+	}
+	l.BuyAmount = (sellPrice * l.SellAmount) / buyPrice
+	l.Price = l.BuyAmount / l.SellAmount
+	bal.Balances[l.Collat] = bal.Balances[l.Collat] - l.CollAmount
+	// add position to positions using current price
+	//
+	post := &Position{
+		Limit:    *l,
+		Start:    time.Now().Round(time.Second),
+		Alive:    true,
+		LiqPrice: l.liqPrice,
+	}
+	sesh.CreateDoc("positions", post)
 	return nil
 }
 
