@@ -1,10 +1,16 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"strings"
+	"time"
 
+	"github.com/evan-forbes/chip/arango"
 	"github.com/evan-forbes/chip/cmd/trade"
+	"github.com/pkg/errors"
+	cron "github.com/robfig/cron/v3"
 	"github.com/urfave/cli/v2"
 )
 
@@ -60,7 +66,7 @@ func main() {
 		},
 		{
 			Name:  "close",
-			Usage: "ends an open position, cementing losses or gains",
+			Usage: "ends/describes an ending for an open position, cementing losses or gains",
 			// Flags: tradeFlags,
 			// Action: trade.Short,s
 		},
@@ -82,6 +88,38 @@ func main() {
 			// Flags: tradeFlags,
 			// Action: trade.Short,s
 		},
+	}
+
+	// setup
+	if strings.Contains(strings.Join(os.Args, ""), "boot") {
+		crn := cron.New()
+		crn.AddFunc("*/15 * * * *", func() {
+			time.Sleep(time.Second * 30)
+			// connect to arango
+			sesh, err := arango.NewSesh(context.Background(), "cookie")
+			if err != nil {
+				log.Println(errors.Wrap(err, "failure to update chip:"))
+				return
+			}
+			// execute market orders
+			err = trade.ExecuteMarketOrders(app.Disc, sesh)
+			if err != nil {
+				log.Println(errors.Wrap(err, "failure to update chip: could not execute market orders"))
+				return
+			}
+			// update any limit orders
+			err = trade.CheckLimits(app.Disc, sesh)
+			if err != nil {
+				log.Println(errors.Wrap(err, "failure to update chip: could not update limit orders"))
+				return
+			}
+			// update all positions
+			err = trade.UpdatePositions(app.Disc, sesh)
+			if err != nil {
+				log.Println(errors.Wrap(err, "failure to update chip: could not update positions"))
+				return
+			}
+		})
 	}
 
 	err := app.Run(os.Args)
