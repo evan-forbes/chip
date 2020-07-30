@@ -63,6 +63,24 @@ func (s *Sesh) CreateDoc(col string, data interface{}) (err error) {
 	return err
 }
 
+func (s *Sesh) Update(col string, key string, data interface{}) (err error) {
+	collection, err := s.GetCol(col)
+	if err != nil {
+		return err
+	}
+	_, err = collection.UpdateDocument(s.Ctx, key, data)
+	return err
+}
+
+func (s *Sesh) RemoveDoc(col string, key string) (err error) {
+	collection, err := s.GetCol(col)
+	if err != nil {
+		return err
+	}
+	_, err = collection.RemoveDocument(s.Ctx, key)
+	return err
+}
+
 // GetCol retrieves a collection using established Sesh data
 func (s *Sesh) GetCol(colName string) (driver.Collection, error) {
 	col, err := s.db.Collection(s.Ctx, colName)
