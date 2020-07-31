@@ -127,17 +127,17 @@ func UserChanID(sesh *Sesh, user string) (string, error) {
 	return id, err
 }
 
-func RemoveLimit(sesh *Sesh, key string) error {
-	col, err := sesh.GetCol("limits")
-	if err != nil {
-		return errors.Wrap(err, "failure to remove limit order:")
-	}
-	_, err = col.RemoveDocument(sesh.Ctx, key)
-	if err != nil {
-		return errors.Wrap(err, "failure to remove limit order:")
-	}
-	return nil
-}
+// func RemoveLimit(sesh *Sesh, key string) error {
+// 	col, err := sesh.GetCol("limits")
+// 	if err != nil {
+// 		return errors.Wrap(err, "failure to remove limit order:")
+// 	}
+// 	_, err = col.RemoveDocument(sesh.Ctx, key)
+// 	if err != nil {
+// 		return errors.Wrap(err, "failure to remove limit order:")
+// 	}
+// 	return nil
+// }
 
 func ExportStamps(sesh *Sesh, incr int) ([]*Stamp, []string, error) {
 	const query = `

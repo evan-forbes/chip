@@ -53,7 +53,7 @@ func Begin(ctx *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failure to begin")
 	}
-	ctx.Println(":partying_face: CONGRADULATIONS, MEAT BAG, YOU ARE NOW A MEMBER! :chart_with_upward_trend: I will send any personal notifications to this channel. see what I can do with !chip help")
+	ctx.Println(":partying_face: CONGRADULATIONS, MY NEW MEAT BAG FRIEND! You may now commence trading. I will send any personal notifications to this channel. see what I can do with !chip help, and to get specific help with a subcommand, try !chip help sub-command-name-here")
 	return nil
 }
 

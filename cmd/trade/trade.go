@@ -37,13 +37,13 @@ func Flags() []cli.Flag {
 			Name:    "sellamount",
 			Aliases: []string{"sam"},
 			Value:   0,
-			Usage:   "specify the amount to be bought (use -1 to sell all",
+			Usage:   "specify the amount to be bought (use -1 to sell all)",
 		},
 		&cli.Float64Flag{
 			Name:    "price",
 			Aliases: []string{"p"},
 			Value:   0,
-			Usage:   "specify the price of execution",
+			Usage:   "specify the price of execution.",
 		},
 		&cli.IntFlag{
 			Name:    "leverage",
@@ -135,7 +135,8 @@ func Trade(long, levered bool) cli.ActionFunc {
 		if err != nil {
 			return errors.Wrap(err, "failure to insert limit order")
 		}
-		const succMsg = `meat bag, your order has been successfully submitted, I will notify you if it gets executed.\nsee !chip help if you seek further action.
+		const succMsg = `meat bag, your order has been successfully submitted, I will notify you if it gets executed.
+see !chip help if you seek further action.
 		`
 		ctx.Println(succMsg)
 		return nil

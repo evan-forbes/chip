@@ -33,6 +33,7 @@ func main() {
 	app := cli.NewApp()
 	app.EnableBashCompletion = true
 	app.Name = "chip"
+	app.Usage = "paper trade the top 300 crypto currencies"
 
 	// subcommands
 	app.Commands = []*cli.Command{
@@ -100,7 +101,7 @@ func main() {
 	// setup
 	if strings.Contains(strings.Join(os.Args, ""), "boot") {
 		crn := cron.New()
-		crn.AddFunc("*/1 * * * *", func() {
+		crn.AddFunc("*/15 * * * *", func() {
 			time.Sleep(time.Second * 30)
 			fmt.Println("updating the chip state")
 			// connect to arango

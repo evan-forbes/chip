@@ -14,6 +14,7 @@ func UpdatePositions(srv *disc.Server, sesh *arango.Sesh) error {
 	const query = `
 	let out = (
 		for p in positions
+			filter p.alive == true
 			return p
 	)
 	return out
@@ -30,7 +31,7 @@ func UpdatePositions(srv *disc.Server, sesh *arango.Sesh) error {
 		}
 		// liquidate position if needed
 		if val.Value <= 0 {
-			p.Liquidate(srv, sesh)
+			return p.Liquidate(srv, sesh)
 		}
 		// add the value to the records
 		err = sesh.CreateDoc("post_val", val)
@@ -61,7 +62,7 @@ type Position struct {
 	Start      time.Time       `json:"start"`
 	End        time.Time       `json:"end"`
 	Alive      bool            `json:"alive"`
-	LiqPrice   float64         `json:"liquidation"`
+	LiqPrice   float64         `json:"liquidation_price"`
 	Liquidated bool            `json:"liquidated"`
 	CloseCond  *CloseCondition `json:"close_condition"`
 	Limit
@@ -135,6 +136,15 @@ func (p *Position) Value(sesh *arango.Sesh) (PosVal, error) {
 		Position: p.Key,
 	}
 	return out, nil
+}
+
+func (p *Position) LiquidationPrice() float64 {
+	neededD := 1 / float64(p.Leverage)
+	dir := float64(-1)
+	if p.Long {
+		dir = 1
+	}
+	return p.Price - (dir * neededD * p.Price)
 }
 
 func (p *Position) liquidationMessage() string {

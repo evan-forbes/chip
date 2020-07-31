@@ -2,6 +2,7 @@ package trade
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/evan-forbes/chip/arango"
@@ -111,7 +112,7 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 	if l.Collat != "" {
 		collBal, has := bal.Balances[l.Collat]
 		if collBal < l.SellAmount || !has {
-			errMsg := fmt.Sprintf("meat ball, failed to execute your limit order %s: you do not have enough %s", l.Key, l.Collat)
+			errMsg := fmt.Sprintf("meat bag, failed to execute your limit order %s: you do not have enough %s", l.Key, l.Collat)
 			srv.Message(id, errMsg)
 			// remove the limit order
 			return sesh.RemoveDoc("limits", l.Key)
@@ -120,7 +121,7 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 		// check the user's sell balance
 		sellBal, has := bal.Balances[l.Sell]
 		if sellBal < l.SellAmount || !has {
-			errMsg := fmt.Sprintf("meat ball, failed to execute your limit order: you do not have enough %s", l.Sell)
+			errMsg := fmt.Sprintf("meat bag, failed to execute your limit order: you do not have enough %s", l.Sell)
 			srv.Message(id, errMsg)
 			// remove the limit order
 			return sesh.RemoveDoc("limits", l.Key)
@@ -154,12 +155,6 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 		return errors.Wrap(err, "failure to execute limit order")
 	}
 
-	// remove the old limit order
-	err = arango.RemoveLimit(sesh, l.Key)
-	if err != nil {
-		return errors.Wrap(err, "failure to remove executed limit order")
-	}
-
 	// notify the user and exit
 	if l.Leverage != 0 {
 		return srv.Message(id, l.renderLevered())
@@ -189,8 +184,16 @@ func (l *Limit) executeTrade(sesh *arango.Sesh, bal *arango.Balance) error {
 	l.ExecTime = time.Now().Round(time.Second)
 
 	err = sesh.CreateDoc("trades", l)
+	if err != nil {
+		return errors.Wrap(err, "failure to insert limit trade")
+	}
 
-	return err
+	err = sesh.RemoveDoc("limits", l.Key)
+	if err != nil {
+		return errors.Wrap(err, "failure to insert limit trade")
+	}
+
+	return nil
 }
 
 // executeMarketTrade alters a users balances according to limit order. It assumes the
@@ -218,6 +221,15 @@ func (l *Limit) executeMarketTrade(sesh *arango.Sesh, bal *arango.Balance) error
 	l.ExecTime = time.Now().Round(time.Second)
 
 	err = sesh.CreateDoc("trades", l)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// remove the old limit order
+	err = sesh.RemoveDoc("pending", l.Key)
+	if err != nil {
+		return errors.Wrap(err, "failure to remove executed limit order")
+	}
 
 	return err
 }
@@ -238,12 +250,25 @@ func (l *Limit) executeLevered(sesh *arango.Sesh, bal *arango.Balance) error {
 	// add position to positions using current price
 	//
 	post := &Position{
-		Limit:    *l,
-		Start:    time.Now().Round(time.Second),
-		Alive:    true,
-		LiqPrice: l.liqPrice,
+		Limit: *l,
+		Start: time.Now().Round(time.Second),
+		Alive: true,
 	}
-	sesh.CreateDoc("positions", post)
+
+	lp := post.LiquidationPrice()
+	l.liqPrice = lp
+	post.LiqPrice = lp
+
+	err := sesh.CreateDoc("positions", post)
+	if err != nil {
+		return errors.Wrap(err, "failure to insert limit postion")
+	}
+
+	// remove the old limit order
+	err = sesh.RemoveDoc("limits", l.Key)
+	if err != nil {
+		return errors.Wrap(err, "failure to remove executed limit order")
+	}
 	return nil
 }
 
@@ -263,12 +288,23 @@ func (l *Limit) executeMarketLevered(sesh *arango.Sesh, bal *arango.Balance) err
 	// add position to positions using current price
 	//
 	post := &Position{
-		Limit:    *l,
-		Start:    time.Now().Round(time.Second),
-		Alive:    true,
-		LiqPrice: l.liqPrice,
+		Limit: *l,
+		Start: time.Now().Round(time.Second),
+		Alive: true,
 	}
-	sesh.CreateDoc("positions", post)
+	lp := post.LiquidationPrice()
+	l.liqPrice = lp
+	post.LiqPrice = lp
+	err = sesh.CreateDoc("positions", post)
+	if err != nil {
+		return errors.Wrap(err, "failure to insert market post")
+	}
+	// remove the old limit order
+	err = sesh.RemoveDoc("pending", l.Key)
+	if err != nil {
+		return errors.Wrap(err, "failure to remove executed market limit order")
+	}
+
 	return nil
 }
 
