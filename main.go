@@ -10,6 +10,7 @@ import (
 
 	"github.com/evan-forbes/chip/arango"
 	"github.com/evan-forbes/chip/cmd/begin"
+	"github.com/evan-forbes/chip/cmd/folio"
 	"github.com/evan-forbes/chip/cmd/trade"
 	"github.com/pkg/errors"
 	cron "github.com/robfig/cron/v3"
@@ -38,22 +39,30 @@ func main() {
 	// subcommands
 	app.Commands = []*cli.Command{
 		{
-			Name:   "short",
-			Usage:  "opens a bearish position/limit order",
-			Flags:  trade.Flags(),
-			Action: trade.Trade(false, true),
+			Name:      "short",
+			Usage:     "opens a bearish position/limit order",
+			UsageText: trade.ShortUsageText,
+			Flags:     trade.Flags(),
+			Action:    trade.Trade(false, true),
 		},
 		{
-			Name:   "long",
-			Usage:  "opens a bullish position/limit order",
-			Flags:  trade.Flags(),
-			Action: trade.Trade(true, true),
+			Name:      "long",
+			Usage:     "opens a bullish position/limit order",
+			UsageText: trade.LongUsageText,
+			Flags:     trade.Flags(),
+			Action:    trade.Trade(true, true),
 		},
 		{
 			Name:   "trade",
 			Usage:  "exchange one asset for another",
 			Flags:  trade.Flags(),
 			Action: trade.Trade(true, false),
+		},
+		{
+			Name:  "folio",
+			Usage: "look at your current portfolio",
+			// Flags:  trade.Flags(),
+			Action: folio.Folio,
 		},
 		// {
 		// 	Name:  "award",

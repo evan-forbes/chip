@@ -129,13 +129,13 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 	}
 	switch {
 	// limit should be executed at market
-	case l.Price == 0 && l.Leverage == 0:
+	case l.Price > 0 && l.Leverage == 0:
 		err = l.executeTrade(sesh, bal)
 	// limit order should be executed at market prices
 	case l.Price == 0 && l.Leverage > 0:
 		err = l.executeMarketLevered(sesh, bal)
 	// limit order is not levered
-	case l.Price > 0 && l.Leverage == 0:
+	case l.Price == 0 && l.Leverage == 0:
 		err = l.executeMarketTrade(sesh, bal)
 	// limit order is levered
 	case l.Price > 0 && l.Leverage > 0:
@@ -185,12 +185,14 @@ func (l *Limit) executeTrade(sesh *arango.Sesh, bal *arango.Balance) error {
 
 	err = sesh.CreateDoc("trades", l)
 	if err != nil {
+		fmt.Printf("could not insert: %+v", l)
 		return errors.Wrap(err, "failure to insert limit trade")
 	}
 
 	err = sesh.RemoveDoc("limits", l.Key)
 	if err != nil {
-		return errors.Wrap(err, "failure to insert limit trade")
+		fmt.Println("could not remove old limit", l)
+		return errors.Wrap(err, "failure to remove old limit")
 	}
 
 	return nil
@@ -211,7 +213,7 @@ func (l *Limit) executeMarketTrade(sesh *arango.Sesh, bal *arango.Balance) error
 	}
 	sellCost := sellPrice * l.SellAmount
 	l.BuyAmount = sellCost / buyPrice
-	l.Price = l.BuyAmount / l.SellAmount
+	l.Price = buyPrice / sellPrice
 
 	// adjust balances
 	bal.Balances[l.Sell] = bal.Balances[l.Sell] - l.SellAmount
@@ -222,7 +224,7 @@ func (l *Limit) executeMarketTrade(sesh *arango.Sesh, bal *arango.Balance) error
 
 	err = sesh.CreateDoc("trades", l)
 	if err != nil {
-		log.Println(err)
+		log.Println(errors.Wrap(err, "failure to insert executed trade"))
 	}
 
 	// remove the old limit order
@@ -335,7 +337,7 @@ func (l *Limit) IsReady(sesh *arango.Sesh) (bool, error) {
 
 func (l *Limit) renderTrade() string {
 	return fmt.Sprintf(
-		"limit order has been executed: bought %f.3 %s using %f.3 %s",
+		"limit order has been executed: bought %.3f %s using %.3f %s",
 		l.BuyAmount,
 		l.Buy,
 		l.SellAmount,
@@ -349,7 +351,7 @@ func (l *Limit) renderLevered() string {
 		dir = "long"
 	}
 	return fmt.Sprintf(
-		"position has been opended: %d x %s on %s relative to %s using %s as collateral. Liquidation at %f.3 %s/%s",
+		"position has been opended: %d x %s on %s relative to %s using %s as collateral. Liquidation at %.3f %s/%s",
 		l.Leverage,
 		dir,
 		l.Buy,

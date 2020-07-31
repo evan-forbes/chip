@@ -1,14 +1,14 @@
 package arango
 
 import (
+	"bytes"
 	"fmt"
 	"log"
-	"strings"
+	"text/tabwriter"
+	"text/template"
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/text/language"
-	"golang.org/x/text/message"
 )
 
 /*
@@ -32,19 +32,21 @@ type Balance struct {
 	User      string             `json:"user"`
 	Balances  map[string]float64 `json:"balances"`
 	Timestamp time.Time          `json:"timestamp"`
-	prices    map[string]float64
+	Prices    map[string]float64
+	Total     float64
 }
 
 // Total calculates the total prices given that the prices
-func (b Balance) Total() (float64, error) {
+func (b *Balance) CalcTotal() (float64, error) {
 	var total float64
 	for coin, amount := range b.Balances {
-		price, has := b.prices[coin]
+		price, has := b.Prices[coin]
 		if !has {
 			return 0, errors.Errorf("no price value found for coin %s", coin)
 		}
 		total = total + (amount * price)
 	}
+	b.Total = total
 	return total, nil
 }
 
@@ -53,26 +55,15 @@ func (b *Balance) Clean(sesh *Sesh) {
 	for coin, bal := range b.Balances {
 		if bal < 0.0000009 {
 			delete(b.Balances, coin)
-			fmt.Println("deleted", coin)
 		}
 	}
-	err := sesh.CreateDoc("balances", b)
-	if err != nil {
-		log.Println("failure to clean balance", err)
+	if sesh != nil {
+		err := sesh.CreateDoc("balances", b)
+		if err != nil {
+			log.Println("failure to insert clean balance", err)
+		}
 	}
 }
-
-// func CleanAllBalances(sesh *Sesh) {
-// 	bals, err := fetchAllBals(sesh)
-// 	if err != nil {
-// 		log.Println(err)
-// 	}
-// 	for user, bal := range bals {
-// 		bal.Clean(sesh)
-// 		fmt.Println("clean balance", user)
-// 		fmt.Println(bal)
-// 	}
-// }
 
 // LookupPrices searches for the most recent prices for each asset in b.Balances
 func (b *Balance) LookupPrices(sesh *Sesh) error {
@@ -82,7 +73,7 @@ func (b *Balance) LookupPrices(sesh *Sesh) error {
 		limit 1
 		return s.price
 	`
-	b.prices = make(map[string]float64)
+	b.Prices = make(map[string]float64)
 	for coin := range b.Balances {
 		// fetch the latest price for the coin
 		var price float64
@@ -91,27 +82,36 @@ func (b *Balance) LookupPrices(sesh *Sesh) error {
 			log.Println("failure to get price for", coin, b.User, err)
 			return errors.Wrap(err, "failure to lookup prices")
 		}
-		b.prices[coin] = price
+		b.Prices[coin] = price
 	}
 	return nil
 }
 
-// render returns a formatted string that descibes the state of the balance
-func (b *Balance) render() string {
-	pp := message.NewPrinter(language.English)
-	out := []string{"@" + b.User}
-	for coin, amount := range b.Balances {
-		if amount == 0 {
-			continue
-		}
-		out = append(out, pp.Sprintf("%.3f\t%s\t $%.3f", amount, coin, b.prices[coin]))
+// Render returns a formatted string that descibes the state of the balance
+func (b *Balance) Render() string {
+	var buf bytes.Buffer
+	twr := tabwriter.NewWriter(&buf, 1, 1, 2, ' ', 0)
+	// make and execute the template
+	t := template.Must(template.New("portfolio").Parse(balanceTempl))
+	err := t.Execute(twr, b)
+	if err != nil {
+		fmt.Println("error in template exec:", err)
 	}
-	if len(b.prices) == len(b.Balances) {
-		total, _ := b.Total()
-		out = append(out, pp.Sprintf("---- TOTAL %.2f\n", total))
+
+	err = twr.Flush()
+	if err != nil {
+		fmt.Println("failure to render balance", err)
 	}
-	return strings.Join(out, "\n")
+	out := buf.String()
+	fmt.Println(out)
+	return out
 }
+
+const balanceTempl = `
+@{{.User}}{{ range $asset, $bal := .Balances}}
+{{$bal}}	{{$asset}}	${{ index $.Prices $asset}}{{end}}
+TOTAL	${{.Total}}
+`
 
 // Trade represents a pending or successful trade. Trades become successful after
 // execution.

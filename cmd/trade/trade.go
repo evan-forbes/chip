@@ -12,6 +12,49 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const ShortUsageText = ` // Note: price is always calculate using:  buying asset price in usd / selling asset price in usd 
+// open a 5x $1000 short on ethereum at the market price
+!chip short -b eth -s usdc -sam 1000 -l 5
+
+// create a limit order to 2x short eth if eth hits $400
+!chip short -b eth -s usdc -sam 1000 -p 400 -l 2
+
+// open a short on BTC relative to ETH using DAI as collateral at the market price 
+!chip short -b BTC -s ETH -c DAI -sam 1000 
+
+// open a limit order 4x short MKR relative to eth using DAI as collateral 
+!chip short -b mkr -s eth -c dai -sam 1000 -l 4 -p 2.05
+`
+
+const LongUsageText = ` // Note: price is always calculate using:  buying asset price in usd / selling asset price in usd 
+// open a 5x $1000 long on ethereum at the market price
+!chip long -b eth -s usdc -sam 1000 -l 5
+
+// create a limit order to 2x long eth if eth hits $200
+!chip long -b eth -s usdc -sam 1000 -p 200 -l 2
+
+// open a long on BTC relative to ETH using DAI as collateral at the market price 
+!chip short -b BTC -s ETH -c DAI -sam 1000 
+
+// open a limit order 4x long MKR relative to eth using DAI as collateral 
+!chip long -b mkr -s eth -c dai -sam 1000 -l 4 -p 1.5
+`
+
+const TradeUsageText = ` // Note: price is always calculate using:  buying asset price in usd / selling asset price in usd 
+// trade 5 ETH for BTC at market prices
+!chip trade -s eth -b btc -sam 5
+
+// sell 5 ETH and buy .1754 BTC if the price of BTC/ETH reaches 28.5
+!chip trade -s eth -b btc -sam 5 -p 28.5
+
+// sell 1 BTC for 33.333 ETH if the price of ETH/BTC reaches .03
+!chip trade -s btc -b eth -sam 1 -p .03
+
+// trade all my USDC for LINK at market price
+!chip trade -b LINK -s USDC -sam -1
+!chip trade -b link -s usdc -all
+`
+
 // Flags returns the flags needed for the trade cli sub command
 func Flags() []cli.Flag {
 	return []cli.Flag{
@@ -49,12 +92,12 @@ func Flags() []cli.Flag {
 			Name:    "leverage",
 			Aliases: []string{"l"},
 			Value:   1,
-			Usage:   "amount of leverage (default of 1)",
+			Usage:   "amount of leverage",
 		},
 		&cli.BoolFlag{
 			Name:    "all",
 			Aliases: []string{"a"},
-			Value:   true,
+			Value:   false,
 			Usage:   "sets sell amount (-sam) to your current balance of the selling asset",
 		},
 	}
@@ -203,9 +246,11 @@ func ensureSell(ctx *cli.Context, sesh *arango.Sesh, user, asset string, amount 
 	}
 	currBal, has := bal.Balances[asset]
 	if !has || currBal < amount {
-		ctx.Println(fmt.Sprintf("beloved meat bag, you do not have enough %s to sell", asset))
-		ctx.Println(fmt.Sprintf("current balance: %f.3", currBal))
+		ctx.Println(fmt.Sprintf("beloved meat bag, you do not have enough %s to sell. \n current balance: %.3f", asset, currBal))
 		return false, 0, nil
+	}
+	if ctx.Bool("all") {
+		return true, currBal, nil
 	}
 	// if there was no sell amount, ask for one
 	if amount == 0 {
@@ -213,7 +258,7 @@ func ensureSell(ctx *cli.Context, sesh *arango.Sesh, user, asset string, amount 
 			fmt.Sprintf(
 				`my meat bag friend, I didn't see a sell amount (flag -sam)
 				how much %s would you like to sell? 
-				You currently have %f.3 %s
+				You currently have %.3f %s
 				please only enter a number
 				use -1 to sell all`,
 				asset, currBal, asset,
