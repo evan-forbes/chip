@@ -1,7 +1,6 @@
 package folio
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/evan-forbes/chip/arango"
@@ -9,8 +8,21 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// Flags returns the flags needed for the trade cli sub command
+func Flags() []cli.Flag {
+	return []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "all",
+			Aliases: []string{"a"},
+			Value:   false,
+			Usage:   "see everyone's portfolio",
+		},
+	}
+}
+
+// TODO: include postions
+
 func Folio(ctx *cli.Context) error {
-	fmt.Println("running folio")
 	const errMsg = "failure to display portfolio"
 	// fetch the users current balance
 	sesh, err := arango.NewSesh(ctx.Context, "cookie")

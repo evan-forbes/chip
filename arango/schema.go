@@ -87,12 +87,18 @@ func (b *Balance) LookupPrices(sesh *Sesh) error {
 	return nil
 }
 
+func renderFloat(x float64) string {
+	return fmt.Sprintf("%.3f")
+}
+
 // Render returns a formatted string that descibes the state of the balance
 func (b *Balance) Render() string {
 	var buf bytes.Buffer
-	twr := tabwriter.NewWriter(&buf, 1, 1, 2, ' ', 0)
+	twr := tabwriter.NewWriter(&buf, 1, 4, 8, ' ', 0)
 	// make and execute the template
-	t := template.Must(template.New("portfolio").Parse(balanceTempl))
+	t := template.Must(template.New("portfolio").Funcs(template.FuncMap{
+		"renderFloat": renderFloat,
+	}).Parse(balanceTempl))
 	err := t.Execute(twr, b)
 	if err != nil {
 		fmt.Println("error in template exec:", err)
@@ -102,14 +108,12 @@ func (b *Balance) Render() string {
 	if err != nil {
 		fmt.Println("failure to render balance", err)
 	}
-	out := buf.String()
-	fmt.Println(out)
-	return out
+	return buf.String()
 }
 
 const balanceTempl = `
 @{{.User}}{{ range $asset, $bal := .Balances}}
-{{$bal}}	{{$asset}}	${{ index $.Prices $asset}}{{end}}
+{{with $b := $bal}}{{printf "%.3f" $b}}{{end}}	{{$asset}}	${{ index $.Prices $asset}}{{end}}
 TOTAL	${{.Total}}
 `
 
