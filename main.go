@@ -54,10 +54,11 @@ func main() {
 			Action:    trade.Trade(true, true),
 		},
 		{
-			Name:   "trade",
-			Usage:  "exchange one asset for another",
-			Flags:  trade.Flags(),
-			Action: trade.Trade(true, false),
+			Name:      "trade",
+			Usage:     "exchange one asset for another",
+			UsageText: trade.TradeUsageText,
+			Flags:     trade.Flags(),
+			Action:    trade.Trade(true, false),
 		},
 		{
 			Name:   "folio",
