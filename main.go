@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -10,7 +9,9 @@ import (
 
 	"github.com/evan-forbes/chip/arango"
 	"github.com/evan-forbes/chip/cmd/begin"
+	"github.com/evan-forbes/chip/cmd/close"
 	"github.com/evan-forbes/chip/cmd/folio"
+	"github.com/evan-forbes/chip/cmd/posts"
 	"github.com/evan-forbes/chip/cmd/trade"
 	"github.com/pkg/errors"
 	cron "github.com/robfig/cron/v3"
@@ -59,11 +60,22 @@ func main() {
 			Action: trade.Trade(true, false),
 		},
 		{
-			Name:  "folio",
-			Usage: "look at your current portfolio",
-			// Flags:  trade.Flags(),
+			Name:   "folio",
+			Usage:  "look at your current portfolio",
 			Action: folio.Folio,
 		},
+		{
+			Name:   "posts",
+			Usage:  "look at your open positions",
+			Action: posts.Posts,
+		},
+		{
+			Name:      "close",
+			Usage:     "end a currently open levered position",
+			UsageText: "!chip close, then follow directions",
+			Action:    close.Close,
+		},
+
 		// {
 		// 	Name:  "award",
 		// 	Usage: "starts the process of issuing a reward",
@@ -112,7 +124,6 @@ func main() {
 		crn := cron.New()
 		crn.AddFunc("*/15 * * * *", func() {
 			time.Sleep(time.Second * 30)
-			fmt.Println("updating the chip state")
 			// connect to arango
 			sesh, err := arango.NewSesh(context.Background(), "cookie")
 			if err != nil {

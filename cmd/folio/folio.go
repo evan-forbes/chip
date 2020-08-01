@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/evan-forbes/chip/arango"
+	"github.com/evan-forbes/chip/cmd/posts"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 )
@@ -52,7 +53,7 @@ func Folio(ctx *cli.Context) error {
 	ren := bal.Render()
 	// send to user
 	ctx.Println(ren)
-	return nil
+	return posts.Posts(ctx)
 }
 
 // detectUser attempts to identify the user based on the context

@@ -65,6 +65,19 @@ func (b *Balance) Clean(sesh *Sesh) {
 	}
 }
 
+func (b *Balance) Update(asset string, amount float64) bool {
+	amm, has := b.Balances[asset]
+	if !has {
+		if amount < 0 {
+			return false
+		}
+		b.Balances[asset] = amm
+		return true
+	}
+	b.Balances[asset] = b.Balances[asset] + amount
+	return true
+}
+
 // LookupPrices searches for the most recent prices for each asset in b.Balances
 func (b *Balance) LookupPrices(sesh *Sesh) error {
 	const query = `
@@ -109,6 +122,23 @@ func (b *Balance) Render() string {
 		fmt.Println("failure to render balance", err)
 	}
 	return buf.String()
+}
+
+func UpdateBalance(sesh *Sesh, user, asset string, amount float64) error {
+	bal, err := LatestBalance(sesh, user)
+	if err != nil {
+		return errors.Wrap(err, "failure to update balance")
+	}
+	valid := bal.Update(asset, amount)
+	if !valid {
+		return errors.New("invalid change to balance, balance cannot go negative")
+	}
+	bal.Timestamp = time.Now().Round(time.Second)
+	err = sesh.CreateDoc("balances", bal)
+	if err != nil {
+		return errors.Wrap(err, "failure to update balance")
+	}
+	return nil
 }
 
 const balanceTempl = `

@@ -65,6 +65,8 @@ type Position struct {
 	LiqPrice   float64         `json:"liquidation_price"`
 	Liquidated bool            `json:"liquidated"`
 	CloseCond  *CloseCondition `json:"close_condition"`
+	Dir        string
+	CurrValue  float64
 	Limit
 }
 
@@ -80,6 +82,26 @@ func (p *Position) Close(sesh *arango.Sesh, liquidated bool) error {
 	_, err = pos.UpdateDocument(sesh.Ctx, p.Key, p)
 	if err != nil {
 		return errors.Wrap(err, "failure to close position:")
+	}
+	if liquidated {
+		return nil
+	}
+	// add the leftover/gains to the user's balance
+	// calculate the current value
+	errMsg := fmt.Sprintf("!!!!!failure to add closed position value to user!!!!!! %s %s", p.User, p.Key)
+	val, err := p.Value(sesh)
+	if err != nil {
+		return errors.Wrap(err, errMsg)
+	}
+	// add that to the user's balance
+	collPrice, err := arango.FetchLatestPrice(sesh, p.Collat)
+	if err != nil {
+		return errors.Wrap(err, errMsg)
+	}
+	award := val.Value / collPrice
+	err = arango.UpdateBalance(sesh, p.User, p.Collat, award)
+	if err != nil {
+		return errors.Wrap(err, errMsg)
 	}
 	return nil
 }
@@ -168,4 +190,17 @@ type PosVal struct {
 	Time     time.Time `json:"time"`
 	Value    float64   `json:"value"` // value in USD
 	Position string    `json:"position"`
+}
+
+type PosRender struct {
+	*Position
+	Dir string
+}
+
+func (p *Position) SetDir() {
+	dir := "short"
+	if p.Long {
+		dir = "long"
+	}
+	p.Dir = dir
 }

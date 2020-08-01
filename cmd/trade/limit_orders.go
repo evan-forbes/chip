@@ -126,6 +126,7 @@ func (l *Limit) Execute(srv *disc.Server, sesh *arango.Sesh) error {
 			// remove the limit order
 			return sesh.RemoveDoc("limits", l.Key)
 		}
+		l.Collat = l.Sell
 	}
 	switch {
 	// limit should be executed at market
@@ -285,7 +286,7 @@ func (l *Limit) executeMarketLevered(sesh *arango.Sesh, bal *arango.Balance) err
 		return err
 	}
 	l.BuyAmount = (sellPrice * l.SellAmount) / buyPrice
-	l.Price = l.BuyAmount / l.SellAmount
+	l.Price = buyPrice / sellPrice
 	bal.Balances[l.Collat] = bal.Balances[l.Collat] - l.CollAmount
 	// add position to positions using current price
 	//
@@ -351,11 +352,12 @@ func (l *Limit) renderLevered() string {
 		dir = "long"
 	}
 	return fmt.Sprintf(
-		"position has been opended: %d x %s on %s relative to %s using %s as collateral. Liquidation at %.3f %s/%s",
+		"position has been opended: %d x %s on %s relative to %s using %.2f %s as collateral. Liquidation at %.3f %s/%s",
 		l.Leverage,
 		dir,
 		l.Buy,
 		l.Sell,
+		l.CollAmount,
 		l.Collat,
 		l.liqPrice,
 		l.Buy,
