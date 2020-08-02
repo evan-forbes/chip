@@ -39,19 +39,17 @@ func UpdatePositions(srv *disc.Server, sesh *arango.Sesh) error {
 			return errors.Wrap(err, "failure to add position historical value")
 		}
 		// check if this position should be closed
-		if p.CloseCond != nil {
-			if val.Value < p.CloseCond.Lower {
-				err = p.Close(sesh, false)
-				if err != nil {
-					return errors.Wrap(err, "failure to update position")
-				}
+		crossed, u, err := p.Check(sesh, val.Value)
+		if err != nil {
+			return errors.Wrap(err, "failure to update position: could not check for close condidtion")
+		}
+		if crossed {
+			// notify user
+			id, err := arango.UserChanID(sesh, p.User)
+			if err != nil {
+				return errors.Wrap(err, "failure to find user id")
 			}
-			if val.Value > p.CloseCond.Upper {
-				err = p.Close(sesh, false)
-				if err != nil {
-					return errors.Wrap(err, "failure to update position")
-				}
-			}
+			srv.Message(id, fmt.Sprintf("position %s crossed %s limit, it has been closed", p.Key, u))
 		}
 	}
 	return nil
@@ -64,7 +62,7 @@ type Position struct {
 	Alive      bool            `json:"alive"`
 	LiqPrice   float64         `json:"liquidation_price"`
 	Liquidated bool            `json:"liquidated"`
-	CloseCond  *CloseCondition `json:"close_condition"`
+	CloseCond  *CloseCondition `json:"close_condition,omitempty"`
 	Dir        string
 	CurrValue  float64
 	Limit
@@ -183,6 +181,30 @@ func (p *Position) liquidationMessage() string {
 type CloseCondition struct {
 	Upper float64 `json:"upper"`
 	Lower float64 `json:"lower"`
+}
+
+func (p *Position) Check(sesh *arango.Sesh, val float64) (closed bool, upper string, err error) {
+	if p.CloseCond == nil {
+		return false, "", nil
+	}
+	// did the value cross the lower condition
+	if val < p.CloseCond.Lower && p.CloseCond.Lower > 0 {
+		err = p.Close(sesh, false)
+		if err != nil {
+			return false, "", errors.Wrap(err, "failure to update position")
+		}
+		return true, "lower", nil
+	}
+
+	// did the value cross the upper condition
+	if val > p.CloseCond.Upper && p.CloseCond.Lower > 0 {
+		err = p.Close(sesh, false)
+		if err != nil {
+			return false, "", errors.Wrap(err, "failure to update position")
+		}
+		return true, "upper", nil
+	}
+	return false, "", nil
 }
 
 // PosVal represents the value of a position at a point in time

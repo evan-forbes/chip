@@ -73,8 +73,9 @@ func main() {
 		{
 			Name:      "close",
 			Usage:     "end a currently open levered position",
-			UsageText: "!chip close, then follow directions",
+			UsageText: close.UsageText,
 			Action:    close.Close,
+			Flags:     close.Flags(),
 		},
 
 		// {

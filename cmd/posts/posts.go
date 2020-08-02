@@ -60,7 +60,7 @@ func Open(sesh *arango.Sesh, user string) ([]*trade.Position, error) {
 	return pos, nil
 }
 
-// detectUser attempts to identify the user based on the context
+// DetectUser attempts to identify the user based on the context
 func DetectUser(ctx *cli.Context) (string, bool) {
 	var user string
 	switch {
@@ -75,12 +75,17 @@ func DetectUser(ctx *cli.Context) (string, bool) {
 	return user, true
 }
 
-// Render returns a formatted string that descibes the state of the balance
+// Render returns a formatted string that descibes the user's positions
 func Render(sesh *arango.Sesh, posts []*trade.Position) (string, error) {
 	const templ = `
-	{{ range $i, $p := .}}
-	- {{$i}} )	${{with $cv := $p.CurrValue}}{{printf "%.3f" $cv}}{{end}}	{{$p.Leverage}}x	{{$p.Dir}}	{{$p.Buy}}	{{$p.Sell}}	Size: {{$p.CollAmount}} {{$p.Collat}}{{end}}
-	`
+{{ range $i, $p := .}}
+- {{ inc $i }} )	${{with $cv := $p.CurrValue}}{{printf "%.3f" $cv}}{{end}}	{{$p.Leverage}}x	{{$p.Dir}}	{{$p.Buy}}	{{$p.Sell}}	Size: {{$p.CollAmount}} {{$p.Collat}}{{end}}`
+	funcMap := template.FuncMap{
+		// The name "inc" is what the function will be called in the template text.
+		"inc": func(i int) int {
+			return i + 1
+		},
+	}
 	for _, p := range posts {
 		p.SetDir()
 		posVal, err := p.Value(sesh)
@@ -92,7 +97,7 @@ func Render(sesh *arango.Sesh, posts []*trade.Position) (string, error) {
 	var buf bytes.Buffer
 	twr := tabwriter.NewWriter(&buf, 1, 4, 8, ' ', 0)
 	// make and execute the template
-	t := template.Must(template.New("positions").Parse(templ))
+	t := template.Must(template.New("positions").Funcs(funcMap).Parse(templ))
 	err := t.Execute(twr, posts)
 	if err != nil {
 		fmt.Println("error in template exec:", err)
