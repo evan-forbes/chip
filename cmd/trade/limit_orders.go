@@ -238,7 +238,7 @@ func (l *Limit) executeMarketTrade(sesh *arango.Sesh, bal *arango.Balance) error
 }
 
 func (l *Limit) executeLevered(sesh *arango.Sesh, bal *arango.Balance) error {
-	// check that there is enough asset to sell
+	// // check that there is enough asset to sell
 	// sellPrice, err := arango.FetchLatestPrice(sesh, l.Sell)
 	// if err != nil {
 	// 	return err
@@ -248,7 +248,6 @@ func (l *Limit) executeLevered(sesh *arango.Sesh, bal *arango.Balance) error {
 	// 	return err
 	// }
 	l.BuyAmount = l.SellAmount / l.Price
-	l.Price = l.BuyAmount / l.SellAmount
 	bal.Balances[l.Collat] = bal.Balances[l.Collat] - l.CollAmount
 	// add position to positions using current price
 	//
