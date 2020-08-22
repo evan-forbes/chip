@@ -141,11 +141,9 @@ func UpdateBalance(sesh *Sesh, user, asset string, amount float64) error {
 	return nil
 }
 
-const balanceTempl = `
-@{{.User}}{{ range $asset, $bal := .Balances}}
+const balanceTempl = `@{{.User}}{{ range $asset, $bal := .Balances}}
 {{with $b := $bal}}{{printf "%.3f" $b}}{{end}}	{{$asset}}	${{ index $.Prices $asset}}{{end}}
-TOTAL	${{.Total}}
-`
+TOTAL	${{.Total}}`
 
 // Trade represents a pending or successful trade. Trades become successful after
 // execution.

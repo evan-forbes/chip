@@ -183,3 +183,20 @@ func CountStamps(sesh *Sesh) (int, error) {
 	}
 	return out, nil
 }
+
+const allUsersQ = `
+let out = (
+for u in users
+	return u._key
+)
+return out
+`
+
+func AllUsers(sesh *Sesh) ([]string, error) {
+	var out []string
+	err := sesh.Execute(allUsersQ, &out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}

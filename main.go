@@ -64,6 +64,7 @@ func main() {
 			Name:   "folio",
 			Usage:  "look at your current portfolio",
 			Action: folio.Folio,
+			Flags:  folio.Flags(),
 		},
 		{
 			Name:   "posts",

@@ -77,8 +77,7 @@ func DetectUser(ctx *cli.Context) (string, bool) {
 
 // Render returns a formatted string that descibes the user's positions
 func Render(sesh *arango.Sesh, posts []*trade.Position) (string, error) {
-	const templ = `
-{{ range $i, $p := .}}
+	const templ = `{{ range $i, $p := .}}
 - {{ inc $i }} )	${{with $cv := $p.CurrValue}}{{printf "%.3f" $cv}}{{end}}	{{$p.Leverage}}x	{{$p.Dir}}	{{$p.Buy}}	{{$p.Sell}}	Size: {{$p.CollAmount}} {{$p.Collat}}{{end}}`
 	funcMap := template.FuncMap{
 		// The name "inc" is what the function will be called in the template text.

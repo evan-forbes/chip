@@ -115,14 +115,14 @@ func ensureInput(ctx *cli.Context, sesh *arango.Sesh, pos []*trade.Position) (*t
 	// check input
 	input, err := strconv.ParseInt(rawinput, 10, 64)
 	if err != nil {
-		ctx.Println(fmt.Sprintf("could not parse input: %s please enter a number", rawinput))
+		ctx.Println(fmt.Sprintf("aborting: could not parse input: %s, please enter a number next time", rawinput))
 		return nil, nil
 	}
-	out := int(input)
-	if out > 0 && out <= len(pos) {
+	p = int(input)
+	if p > 0 && p <= len(pos) {
 		return pos[p-1], nil
 	}
-	ctx.Println("invalid selection, please select a position number")
+	ctx.Println("aborting: invalid selection, please select a position number")
 	return nil, nil
 }
 
